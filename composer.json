@@ -1,6 +1,6 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "moko/laravel-satellite",
+    "name": "moko-github/api-si-satellite",
     "description": "Infrastructure générique pour satellites Laravel connectés à une API externe (client HTTP abstrait, middleware HMAC, commande d'installation).",
     "type": "library",
     "license": "MIT",

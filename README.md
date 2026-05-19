@@ -1,4 +1,4 @@
-# moko/laravel-satellite
+# moko-github/api-si-satellite
 
 Infrastructure générique pour satellites Laravel connectés à une API externe.
 
@@ -19,7 +19,7 @@ Fournit :
 ## Installation
 
 ```bash
-composer require moko/laravel-satellite
+composer require moko-github/api-si-satellite
 ```
 
 ### Publier les fichiers
