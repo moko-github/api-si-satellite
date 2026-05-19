@@ -1,0 +1,30 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+
+/**
+ * Récepteur central des webhooks.
+ * Adapter le match() ci-dessous selon les events de votre API.
+ */
+final class WebhookController
+{
+    public function handle(Request $request): JsonResponse
+    {
+        $event = (string) $request->input('event');
+        $data  = (array)  $request->input('data');
+
+        match ($event) {
+            // 'resource.created' => event(new ResourceCreated($data)),
+            // 'resource.updated' => event(new ResourceUpdated($data)),
+            default => Log::channel('satellite')->warning("Webhook non géré: {$event}", ['data' => $data]),
+        };
+
+        return response()->json(['status' => 'ok']);
+    }
+}

@@ -1,0 +1,43 @@
+{
+    "$schema": "https://getcomposer.org/schema.json",
+    "name": "moko/laravel-satellite",
+    "description": "Infrastructure générique pour satellites Laravel connectés à une API externe (client HTTP abstrait, middleware HMAC, commande d'installation).",
+    "type": "library",
+    "license": "MIT",
+    "keywords": ["laravel", "satellite", "webhook", "http-client"],
+    "require": {
+        "php": "^8.2",
+        "illuminate/console": "^11.0|^12.0",
+        "illuminate/http": "^11.0|^12.0",
+        "illuminate/support": "^11.0|^12.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^9.0|^10.0",
+        "pestphp/pest": "^3.0",
+        "pestphp/pest-plugin-laravel": "^3.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Moko\\Satellite\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Moko\\Satellite\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Moko\\Satellite\\SatelliteServiceProvider"
+            ]
+        }
+    },
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

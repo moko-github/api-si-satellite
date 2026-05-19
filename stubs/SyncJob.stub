@@ -1,0 +1,36 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Jobs;
+
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
+
+/**
+ * Job de synchronisation depuis l'API distante (cursor-based).
+ * Remplacer YourApiClient et YourDTO par vos classes.
+ */
+class SyncResourceJob implements ShouldQueue
+{
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+
+    public function __construct(public readonly bool $fullSync = false) {}
+
+    public function handle(/* YourApiClient $client */): void
+    {
+        // $cursor = null;
+        // do {
+        //     ['items' => $items, 'nextCursor' => $cursor] = $client->listResources(cursor: $cursor);
+        //     foreach ($items as $dto) {
+        //         YourModel::updateOrCreate(['key' => $dto->key], [...]);
+        //     }
+        // } while ($cursor !== null);
+
+        Log::channel('satellite')->info('[SyncResourceJob] Done.');
+    }
+}
