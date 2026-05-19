@@ -5,6 +5,13 @@
     "type": "library",
     "license": "MIT",
     "keywords": ["laravel", "satellite", "webhook", "http-client"],
+    "authors": [
+        {
+            "name": "moko-github",
+            "homepage": "https://github.com/moko-github",
+            "role": "Developer"
+        }
+    ],
     "require": {
         "php": "^8.2",
         "illuminate/console": "^11.0|^12.0",
