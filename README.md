@@ -42,8 +42,22 @@ SATELLITE_API_URL=https://api.example.com
 SATELLITE_API_TOKEN=ton-token
 SATELLITE_API_TIMEOUT=10
 SATELLITE_WEBHOOK_SECRET=un-secret-long-et-aléatoire
+SATELLITE_LOG_LEVEL=debug
 SATELLITE_LOG_CHANNEL=satellite
 ```
+
+| Variable | Défaut | Rôle |
+|---|---|---|
+| `SATELLITE_API_URL` | — | URL de base de l’API distante |
+| `SATELLITE_API_TOKEN` | — | Token Bearer pour l’authentification |
+| `SATELLITE_API_TIMEOUT` | `10` | Timeout HTTP en secondes |
+| `SATELLITE_WEBHOOK_SECRET` | — | Secret HMAC SHA-256 pour vérifier les webhooks (généré automatiquement par `satellite:install`) |
+| `SATELLITE_LOG_LEVEL` | `debug` | Niveau de log du canal `satellite` dans `config/logging.php` |
+| `SATELLITE_LOG_CHANNEL` | `satellite` | Canal Laravel à utiliser pour les logs du client HTTP |
+
+> `SATELLITE_LOG_LEVEL` contrôle **à quel niveau** on logue (debug, info, warning…).
+> `SATELLITE_LOG_CHANNEL` contrôle **dans quel canal** on logue.
+> Les deux sont complémentaires : le canal `satellite` est créé dans `config/logging.php` par `satellite:install`, avec `SATELLITE_LOG_LEVEL` comme niveau minimum.
 
 ---
 
