@@ -6,6 +6,7 @@ namespace Moko\Satellite;
 
 use Illuminate\Support\ServiceProvider;
 use Moko\Satellite\Console\Commands\SatelliteInstallCommand;
+use Moko\Satellite\Console\Commands\SatellitePingCommand;
 
 class SatelliteServiceProvider extends ServiceProvider
 {
@@ -27,6 +28,7 @@ class SatelliteServiceProvider extends ServiceProvider
 
             $this->commands([
                 SatelliteInstallCommand::class,
+                SatellitePingCommand::class,
             ]);
         }
     }
