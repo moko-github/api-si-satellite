@@ -35,4 +35,12 @@ return [
     |--------------------------------------------------------------------------
     */
     'log_channel' => env('SATELLITE_LOG_CHANNEL', 'satellite'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Vérification du certificat SSL
+    | Mettre à false uniquement pour les environnements avec certs auto-signés
+    |--------------------------------------------------------------------------
+    */
+    'verify_ssl' => (bool) env('SATELLITE_VERIFY_SSL', true),
 ];

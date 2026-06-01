@@ -99,14 +99,18 @@ class SatelliteInstallCommand extends Command
             ."SATELLITE_API_TOKEN=\n"
             ."SATELLITE_API_TIMEOUT=10\n"
             ."SATELLITE_LOG_LEVEL=debug\n"
-            ."SATELLITE_WEBHOOK_SECRET={$secret}\n";
+            ."SATELLITE_WEBHOOK_SECRET={$secret}\n"
+            ."# Mettre à false uniquement si l'API utilise un certificat auto-signé (ex : qualification)\n"
+            ."SATELLITE_VERIFY_SSL=true\n";
 
         $exampleBlock = "\n# Satellite API\n"
             ."SATELLITE_API_URL=\n"
             ."SATELLITE_API_TOKEN=\n"
             ."SATELLITE_API_TIMEOUT=10\n"
             ."SATELLITE_LOG_LEVEL=debug\n"
-            ."SATELLITE_WEBHOOK_SECRET=\n";
+            ."SATELLITE_WEBHOOK_SECRET=\n"
+            ."# Mettre à false uniquement si l'API utilise un certificat auto-signé (ex : qualification)\n"
+            ."SATELLITE_VERIFY_SSL=true\n";
 
         $envFile = base_path('.env');
         if (File::exists($envFile) && ! str_contains(File::get($envFile), 'SATELLITE_API_URL')) {

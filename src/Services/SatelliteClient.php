@@ -25,6 +25,7 @@ use Illuminate\Support\Facades\Log;
  *               token:      (string) config('api-si.token'),
  *               timeout:    (int)    config('api-si.timeout', 10),
  *               logChannel: 'api-si',
+ *               verifySSL:  (bool)   config('api-si.verify_ssl', true),
  *           );
  *       }
  *
@@ -43,10 +44,12 @@ abstract class SatelliteClient
         protected readonly string $token,
         protected readonly int $timeout = 10,
         protected readonly string $logChannel = 'stack',
+        protected readonly bool $verifySSL = true,
     ) {
         $this->http = Http::baseUrl($this->baseUrl)
             ->withToken($this->token)
             ->timeout($this->timeout)
+            ->when(! $this->verifySSL, fn ($http) => $http->withoutVerifying())
             ->acceptJson();
     }
 
