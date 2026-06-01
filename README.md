@@ -44,6 +44,8 @@ SATELLITE_API_TIMEOUT=10
 SATELLITE_WEBHOOK_SECRET=un-secret-long-et-aléatoire
 SATELLITE_LOG_LEVEL=debug
 SATELLITE_LOG_CHANNEL=satellite
+# Mettre à false uniquement si l’API utilise un certificat auto-signé (ex : qualification)
+SATELLITE_VERIFY_SSL=true
 ```
 
 | Variable | Défaut | Rôle |
@@ -54,6 +56,7 @@ SATELLITE_LOG_CHANNEL=satellite
 | `SATELLITE_WEBHOOK_SECRET` | — | Secret HMAC SHA-256 pour vérifier les webhooks (généré automatiquement par `satellite:install`) |
 | `SATELLITE_LOG_LEVEL` | `debug` | Niveau de log du canal `satellite` dans `config/logging.php` |
 | `SATELLITE_LOG_CHANNEL` | `satellite` | Canal Laravel à utiliser pour les logs du client HTTP |
+| `SATELLITE_VERIFY_SSL` | `true` | Vérification du certificat SSL. Mettre à `false` pour les environnements avec certificats auto-signés (ex : qualification) |
 
 > `SATELLITE_LOG_LEVEL` contrôle **à quel niveau** on logue (debug, info, warning…).
 > `SATELLITE_LOG_CHANNEL` contrôle **dans quel canal** on logue.
@@ -79,6 +82,7 @@ final class MyApiClient extends SatelliteClient
             token:      (string) config('my-api.token'),
             timeout:    (int)    config('my-api.timeout', 10),
             logChannel: 'my-api',
+            verifySSL:  (bool)   config('my-api.verify_ssl', true),
         );
     }
 
