@@ -140,6 +140,44 @@ try {
 
 ---
 
+## Tester la connectivité
+
+La commande `satellite:ping` vérifie que l'application peut joindre l'API distante.
+
+```bash
+# Endpoint par défaut (/health)
+php artisan satellite:ping
+
+# Endpoint personnalisé (ex : api-si)
+php artisan satellite:ping --endpoint=/api/v1/health
+
+# Surcharger l'URL (tester un environnement sans modifier .env)
+php artisan satellite:ping --endpoint=/api/v1/health --url=https://api-qualification.example.com
+
+# Appel sans token Bearer (endpoint vraiment public)
+php artisan satellite:ping --endpoint=/api/v1/health --no-token
+```
+
+Exemple de sortie en succès :
+
+```
+Satellite Ping
+
+  ● GET https://api.example.com/api/v1/health … 200 OK (42ms)
+
+  {"status":"ok","version":"1.2.3"}
+```
+
+Exemple de sortie en erreur :
+
+```
+Satellite Ping
+
+  ● GET https://api.example.com/api/v1/health … 500 (120ms)
+```
+
+---
+
 ## Structure
 
 ```
