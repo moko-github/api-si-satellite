@@ -12,6 +12,7 @@ use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\intro;
 use function Laravel\Prompts\note;
 use function Laravel\Prompts\outro;
+use function Laravel\Prompts\warning;
 
 /**
  * Installe l'infrastructure satellite dans l'application hôte.
@@ -70,6 +71,13 @@ class SatelliteInstallCommand extends Command
     private function configureLoggingChannel(): void
     {
         $file = config_path('logging.php');
+
+        if (! File::exists($file)) {
+            warning('config/logging.php introuvable : ajoute manuellement le canal de log '."'satellite'".'.');
+
+            return;
+        }
+
         $content = File::get($file);
 
         if (str_contains($content, "'satellite' =>")) {
@@ -77,6 +85,16 @@ class SatelliteInstallCommand extends Command
         }
 
         $marker = "        'emergency' => [";
+
+        if (! str_contains($content, $marker)) {
+            warning(
+                "Marqueur 'emergency' introuvable dans config/logging.php : "
+                ."ajoute manuellement un canal 'satellite' (driver daily, level env('SATELLITE_LOG_LEVEL', 'debug'))."
+            );
+
+            return;
+        }
+
         $insertion = "        'satellite' => [\n"
             ."            'driver' => 'daily',\n"
             ."            'path'   => storage_path('logs/satellite.log'),\n"
@@ -100,6 +118,7 @@ class SatelliteInstallCommand extends Command
             ."SATELLITE_API_TIMEOUT=10\n"
             ."SATELLITE_API_RETRIES=2\n"
             ."SATELLITE_LOG_LEVEL=debug\n"
+            ."SATELLITE_LOG_CHANNEL=satellite\n"
             ."SATELLITE_WEBHOOK_SECRET={$secret}\n"
             ."# Mettre à false uniquement si l'API utilise un certificat auto-signé (ex : qualification)\n"
             ."SATELLITE_VERIFY_SSL=true\n";
@@ -110,6 +129,7 @@ class SatelliteInstallCommand extends Command
             ."SATELLITE_API_TIMEOUT=10\n"
             ."SATELLITE_API_RETRIES=2\n"
             ."SATELLITE_LOG_LEVEL=debug\n"
+            ."SATELLITE_LOG_CHANNEL=satellite\n"
             ."SATELLITE_WEBHOOK_SECRET=\n"
             ."# Mettre à false uniquement si l'API utilise un certificat auto-signé (ex : qualification)\n"
             ."SATELLITE_VERIFY_SSL=true\n";

@@ -32,7 +32,8 @@ final class SatellitePingCommand extends Command
         $verifySSL = (bool) config('satellite.verify_ssl', true);
 
         // Pas de relance : un ping doit refléter l'état immédiat de la connectivité.
-        $client = new class($baseUrl, $token, $timeout, 'stack', $verifySSL, retries: 0) extends SatelliteClient
+        // Canal de log omis → résolu depuis config('satellite.log_channel').
+        $client = new class($baseUrl, $token, $timeout, verifySSL: $verifySSL, retries: 0) extends SatelliteClient
         {
             /**
              * @return array<string, mixed>

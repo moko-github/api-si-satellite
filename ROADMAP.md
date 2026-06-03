@@ -34,15 +34,15 @@ sont livrées ; les autres restent à planifier.
 
 ---
 
-## Cohérence / qualité
+## Cohérence / qualité ✅ livré
 
-- [ ] 🟠 **Utiliser `config('satellite.log_channel')`** — la config existe mais n'est jamais lue ; `SatelliteClient` et la commande `ping` codent `'stack'` en dur.
-- [ ] 🟢 **`SATELLITE_LOG_CHANNEL` dans l'install** — documenté dans le README mais non écrit par `appendEnvVariables()`.
-- [ ] 🟢 **`configureLoggingChannel()` plus robuste** — avertir si le marqueur `'emergency' => [` est introuvable (sinon le canal n'est pas ajouté silencieusement).
-- [ ] 🟢 **Tests de `SatelliteInstallCommand`** — non couverte aujourd'hui.
-- [ ] 🟢 **Scripts Composer** — `test`, `lint`, `analyse` pour le confort de maintenance.
-- [ ] 🟢 **`CHANGELOG.md`** — historique des versions.
-- [ ] 🟢 **`.editorconfig`** — cohérence d'édition.
+- [x] 🟠 **Utiliser `config('satellite.log_channel')`** — `SatelliteClient` résout son canal depuis la config quand `logChannel` est omis ; le ping en hérite.
+- [x] 🟢 **`SATELLITE_LOG_CHANNEL` dans l'install** — ajouté aux blocs `.env` / `.env.example`.
+- [x] 🟢 **`configureLoggingChannel()` plus robuste** — avertit si `config/logging.php` est absent ou si le marqueur `'emergency' => [` est introuvable.
+- [x] 🟢 **Tests de `SatelliteInstallCommand`** — happy path, marqueur absent, annulation.
+- [x] 🟢 **Scripts Composer** — `test`, `lint`, `analyse` (livré au lot 1).
+- [x] 🟢 **`CHANGELOG.md`** — créé (format Keep a Changelog).
+- [x] 🟢 **`.editorconfig`** — créé.
 
 ---
 

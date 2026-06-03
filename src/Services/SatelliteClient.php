@@ -42,6 +42,12 @@ abstract class SatelliteClient
     protected PendingRequest $http;
 
     /**
+     * Canal de log effectivement utilisé (résolu depuis $logChannel ou,
+     * à défaut, depuis config('satellite.log_channel')).
+     */
+    protected readonly string $channel;
+
+    /**
      * Clés (insensibles à la casse, comparées par sous-chaîne) dont la valeur
      * est masquée dans les logs. Surchargeable dans la sous-classe.
      *
@@ -62,11 +68,15 @@ abstract class SatelliteClient
         protected readonly string $baseUrl,
         protected readonly string $token,
         protected readonly int $timeout = 10,
-        protected readonly string $logChannel = 'stack',
+        protected readonly string $logChannel = '',
         protected readonly bool $verifySSL = true,
         protected readonly int $retries = 2,
         protected readonly int $retryDelay = 200,
     ) {
+        $this->channel = $this->logChannel !== ''
+            ? $this->logChannel
+            : (string) config('satellite.log_channel', 'stack');
+
         $this->http = Http::baseUrl($this->baseUrl)
             ->withToken($this->token)
             ->timeout($this->timeout)
@@ -177,7 +187,7 @@ abstract class SatelliteClient
      */
     private function log(string $verb, string $endpoint, array $context = []): void
     {
-        Log::channel($this->logChannel)->debug("[SatelliteClient] {$verb}", [
+        Log::channel($this->channel)->debug("[SatelliteClient] {$verb}", [
             'endpoint' => $endpoint,
             ...$context,
         ]);
@@ -185,7 +195,7 @@ abstract class SatelliteClient
 
     private function logResponse(string $verb, string $endpoint, int $status): void
     {
-        Log::channel($this->logChannel)->debug("[SatelliteClient] {$verb} response", [
+        Log::channel($this->channel)->debug("[SatelliteClient] {$verb} response", [
             'endpoint' => $endpoint,
             'status' => $status,
         ]);
