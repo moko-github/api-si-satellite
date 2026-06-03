@@ -21,5 +21,8 @@ abstract class TestCase extends OrchestraTestCase
         $app['config']->set('satellite.timeout', 10);
         $app['config']->set('satellite.webhook_secret', 'test-secret-64-chars-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx');
         $app['config']->set('satellite.verify_ssl', true);
+        // Le client/ping résolvent leur canal depuis cette clé : on pointe sur
+        // 'stack' (défini par défaut) pour éviter un canal 'satellite' absent en test.
+        $app['config']->set('satellite.log_channel', 'stack');
     }
 }

@@ -23,13 +23,12 @@ class SyncResourceJob implements ShouldQueue
 
     public function handle(/* YourApiClient $client */): void
     {
-        // $cursor = null;
-        // do {
-        //     ['items' => $items, 'nextCursor' => $cursor] = $client->listResources(cursor: $cursor);
-        //     foreach ($items as $dto) {
-        //         YourModel::updateOrCreate(['key' => $dto->key], [...]);
-        //     }
-        // } while ($cursor !== null);
+        // Exposez une méthode publique dans votre client qui s'appuie sur le
+        // helper paginate() de SatelliteClient, puis itérez ici :
+        //
+        // foreach ($client->allResources() as $dto) {
+        //     YourModel::updateOrCreate(['key' => $dto->key], [...]);
+        // }
 
         Log::channel('satellite')->info('[SyncResourceJob] Done.');
     }

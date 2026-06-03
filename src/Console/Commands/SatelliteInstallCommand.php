@@ -12,6 +12,7 @@ use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\intro;
 use function Laravel\Prompts\note;
 use function Laravel\Prompts\outro;
+use function Laravel\Prompts\warning;
 
 /**
  * Installe l'infrastructure satellite dans l'application hôte.
@@ -46,12 +47,12 @@ class SatelliteInstallCommand extends Command
         }
 
         $this->call('vendor:publish', [
-            '--tag'   => 'satellite-config',
+            '--tag' => 'satellite-config',
             '--force' => (bool) $this->option('force'),
         ]);
 
         $this->call('vendor:publish', [
-            '--tag'   => 'satellite-stubs',
+            '--tag' => 'satellite-stubs',
             '--force' => (bool) $this->option('force'),
         ]);
 
@@ -69,14 +70,31 @@ class SatelliteInstallCommand extends Command
 
     private function configureLoggingChannel(): void
     {
-        $file    = config_path('logging.php');
+        $file = config_path('logging.php');
+
+        if (! File::exists($file)) {
+            warning('config/logging.php introuvable : ajoute manuellement le canal de log '."'satellite'".'.');
+
+            return;
+        }
+
         $content = File::get($file);
 
         if (str_contains($content, "'satellite' =>")) {
             return;
         }
 
-        $marker    = "        'emergency' => [";
+        $marker = "        'emergency' => [";
+
+        if (! str_contains($content, $marker)) {
+            warning(
+                "Marqueur 'emergency' introuvable dans config/logging.php : "
+                ."ajoute manuellement un canal 'satellite' (driver daily, level env('SATELLITE_LOG_LEVEL', 'debug'))."
+            );
+
+            return;
+        }
+
         $insertion = "        'satellite' => [\n"
             ."            'driver' => 'daily',\n"
             ."            'path'   => storage_path('logs/satellite.log'),\n"
@@ -85,32 +103,33 @@ class SatelliteInstallCommand extends Command
             ."        ],\n\n"
             ."        'emergency' => [";
 
-        File::put($file, str_replace($marker, $insertion, $content));
+        // Remplacement de la première occurrence uniquement, pour ne pas
+        // dupliquer le canal si le marqueur apparaît plusieurs fois.
+        $position = (int) strpos($content, $marker);
+        $content = substr_replace($content, $insertion, $position, strlen($marker));
+
+        File::put($file, $content);
 
         note("Canal de log 'satellite' ajouté dans config/logging.php.");
     }
 
     private function appendEnvVariables(): void
     {
-        $secret = Str::random(64);
-
-        $block = "\n# Satellite API\n"
+        // Un seul gabarit : .env reçoit un secret généré, .env.example le laisse vide.
+        $envBlock = static fn (string $secret): string => "\n# Satellite API\n"
             ."SATELLITE_API_URL=\n"
             ."SATELLITE_API_TOKEN=\n"
             ."SATELLITE_API_TIMEOUT=10\n"
+            ."SATELLITE_API_CONNECT_TIMEOUT=10\n"
+            ."SATELLITE_API_RETRIES=2\n"
             ."SATELLITE_LOG_LEVEL=debug\n"
+            ."SATELLITE_LOG_CHANNEL=satellite\n"
             ."SATELLITE_WEBHOOK_SECRET={$secret}\n"
             ."# Mettre à false uniquement si l'API utilise un certificat auto-signé (ex : qualification)\n"
             ."SATELLITE_VERIFY_SSL=true\n";
 
-        $exampleBlock = "\n# Satellite API\n"
-            ."SATELLITE_API_URL=\n"
-            ."SATELLITE_API_TOKEN=\n"
-            ."SATELLITE_API_TIMEOUT=10\n"
-            ."SATELLITE_LOG_LEVEL=debug\n"
-            ."SATELLITE_WEBHOOK_SECRET=\n"
-            ."# Mettre à false uniquement si l'API utilise un certificat auto-signé (ex : qualification)\n"
-            ."SATELLITE_VERIFY_SSL=true\n";
+        $block = $envBlock(Str::random(64));
+        $exampleBlock = $envBlock('');
 
         $envFile = base_path('.env');
         if (File::exists($envFile) && ! str_contains(File::get($envFile), 'SATELLITE_API_URL')) {

@@ -24,10 +24,46 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Timeout d'établissement de la connexion (secondes)
+    |--------------------------------------------------------------------------
+    | Distinct du timeout global : borne le temps d'ouverture de la connexion
+    | TCP/TLS. 0 = pas de limite spécifique.
+    */
+    'connect_timeout' => (int) env('SATELLITE_API_CONNECT_TIMEOUT', 10),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Relances HTTP
+    |--------------------------------------------------------------------------
+    | Nombre de tentatives supplémentaires en cas d'échec de connexion
+    | (0 = aucune relance). Le délai initial entre tentatives est en ms.
+    */
+    'retries' => (int) env('SATELLITE_API_RETRIES', 2),
+
+    'retry_delay' => (int) env('SATELLITE_API_RETRY_DELAY', 200),
+
+    /*
+    |--------------------------------------------------------------------------
     | Secret HMAC pour vérifier les webhooks entrants
     |--------------------------------------------------------------------------
     */
     'webhook_secret' => env('SATELLITE_WEBHOOK_SECRET'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Protocole de vérification des webhooks
+    |--------------------------------------------------------------------------
+    | - signature_prefix : préfixe attendu sur la signature (ex : "sha256=")
+    | - tolerance : fenêtre anti-rejeu en secondes (0 = désactivé). Si > 0,
+    |   l'horodatage est requis et la signature porte sur "{timestamp}.{body}".
+    */
+    'webhook' => [
+        'algo' => env('SATELLITE_WEBHOOK_ALGO', 'sha256'),
+        'signature_header' => env('SATELLITE_WEBHOOK_SIGNATURE_HEADER', 'X-Webhook-Signature'),
+        'signature_prefix' => env('SATELLITE_WEBHOOK_SIGNATURE_PREFIX', ''),
+        'timestamp_header' => env('SATELLITE_WEBHOOK_TIMESTAMP_HEADER', 'X-Webhook-Timestamp'),
+        'tolerance' => (int) env('SATELLITE_WEBHOOK_TOLERANCE', 0),
+    ],
 
     /*
     |--------------------------------------------------------------------------
