@@ -46,12 +46,12 @@ class SatelliteInstallCommand extends Command
         }
 
         $this->call('vendor:publish', [
-            '--tag'   => 'satellite-config',
+            '--tag' => 'satellite-config',
             '--force' => (bool) $this->option('force'),
         ]);
 
         $this->call('vendor:publish', [
-            '--tag'   => 'satellite-stubs',
+            '--tag' => 'satellite-stubs',
             '--force' => (bool) $this->option('force'),
         ]);
 
@@ -69,14 +69,14 @@ class SatelliteInstallCommand extends Command
 
     private function configureLoggingChannel(): void
     {
-        $file    = config_path('logging.php');
+        $file = config_path('logging.php');
         $content = File::get($file);
 
         if (str_contains($content, "'satellite' =>")) {
             return;
         }
 
-        $marker    = "        'emergency' => [";
+        $marker = "        'emergency' => [";
         $insertion = "        'satellite' => [\n"
             ."            'driver' => 'daily',\n"
             ."            'path'   => storage_path('logs/satellite.log'),\n"
@@ -98,6 +98,7 @@ class SatelliteInstallCommand extends Command
             ."SATELLITE_API_URL=\n"
             ."SATELLITE_API_TOKEN=\n"
             ."SATELLITE_API_TIMEOUT=10\n"
+            ."SATELLITE_API_RETRIES=2\n"
             ."SATELLITE_LOG_LEVEL=debug\n"
             ."SATELLITE_WEBHOOK_SECRET={$secret}\n"
             ."# Mettre à false uniquement si l'API utilise un certificat auto-signé (ex : qualification)\n"
@@ -107,6 +108,7 @@ class SatelliteInstallCommand extends Command
             ."SATELLITE_API_URL=\n"
             ."SATELLITE_API_TOKEN=\n"
             ."SATELLITE_API_TIMEOUT=10\n"
+            ."SATELLITE_API_RETRIES=2\n"
             ."SATELLITE_LOG_LEVEL=debug\n"
             ."SATELLITE_WEBHOOK_SECRET=\n"
             ."# Mettre à false uniquement si l'API utilise un certificat auto-signé (ex : qualification)\n"

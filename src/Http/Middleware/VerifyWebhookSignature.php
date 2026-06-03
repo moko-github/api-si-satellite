@@ -24,7 +24,7 @@ final class VerifyWebhookSignature
     public function handle(Request $request, Closure $next, string $configKey = 'satellite.webhook_secret'): mixed
     {
         $signature = (string) $request->header('X-Webhook-Signature');
-        $secret    = (string) config($configKey);
+        $secret = (string) config($configKey);
 
         if ($secret === '') {
             abort(500, "Webhook secret not configured ({$configKey})");

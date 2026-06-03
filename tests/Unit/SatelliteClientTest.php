@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Moko\Satellite\Services\SatelliteClient;
 use Moko\Satellite\Services\SatelliteException;
@@ -28,16 +29,27 @@ final class TestableClient extends SatelliteClient
     {
         $this->delete($endpoint);
     }
+
+    /**
+     * @param  array<array-key, mixed>  $data
+     * @return array<array-key, mixed>
+     */
+    public function publicRedact(array $data): array
+    {
+        return $this->redact($data);
+    }
 }
 
-function makeClient(bool $verifySSL = true): TestableClient
+function makeClient(bool $verifySSL = true, int $retries = 0): TestableClient
 {
     return new TestableClient(
-        baseUrl:    'https://api.example.com',
-        token:      'test-token',
-        timeout:    10,
+        baseUrl: 'https://api.example.com',
+        token: 'test-token',
+        timeout: 10,
         logChannel: 'stack',
-        verifySSL:  $verifySSL,
+        verifySSL: $verifySSL,
+        retries: $retries,
+        retryDelay: 1,
     );
 }
 
@@ -142,4 +154,90 @@ it('disables SSL verification when verifySSL is false', function () {
     makeClient(verifySSL: false)->publicGet('/api/v1/health');
 
     Http::assertSent(fn ($request) => $request->url() === 'https://api.example.com/api/v1/health');
+});
+
+// --- Redaction ---
+
+it('redacts sensitive keys in nested arrays', function () {
+    $redacted = makeClient()->publicRedact([
+        'username' => 'alice',
+        'password' => 's3cr3t',
+        'profile' => [
+            'api_token' => 'abc123',
+            'first_name' => 'Alice',
+        ],
+    ]);
+
+    expect($redacted)->toBe([
+        'username' => 'alice',
+        'password' => '[REDACTED]',
+        'profile' => [
+            'api_token' => '[REDACTED]',
+            'first_name' => 'Alice',
+        ],
+    ]);
+});
+
+it('matches sensitive keys case-insensitively and by substring', function () {
+    $redacted = makeClient()->publicRedact([
+        'Authorization' => 'Bearer x',
+        'user_secret' => 'y',
+        'name' => 'keep',
+    ]);
+
+    expect($redacted)->toBe([
+        'Authorization' => '[REDACTED]',
+        'user_secret' => '[REDACTED]',
+        'name' => 'keep',
+    ]);
+});
+
+// --- Exception body ---
+
+it('captures the raw response body on failure', function () {
+    Http::fake(['https://api.example.com/api/v1/users' => Http::response('<html>Bad Gateway</html>', 502)]);
+
+    try {
+        makeClient()->publicGet('/api/v1/users');
+    } catch (SatelliteException $e) {
+        expect($e->statusCode)->toBe(502)
+            ->and($e->body)->toBe('<html>Bad Gateway</html>')
+            ->and($e->errors)->toBe([]);
+    }
+});
+
+// --- Retry ---
+
+it('retries on connection failure then succeeds', function () {
+    $attempts = 0;
+
+    Http::fake(function () use (&$attempts) {
+        $attempts++;
+
+        if ($attempts < 2) {
+            throw new ConnectionException('Connection refused');
+        }
+
+        return Http::response(['ok' => true], 200);
+    });
+
+    $result = makeClient(retries: 2)->publicGet('/api/v1/health');
+
+    expect($result)->toBe(['ok' => true])
+        ->and($attempts)->toBe(2);
+});
+
+it('does not retry when retries is zero', function () {
+    $attempts = 0;
+
+    Http::fake(function () use (&$attempts) {
+        $attempts++;
+
+        throw new ConnectionException('Connection refused');
+    });
+
+    expect(fn () => makeClient(retries: 0)->publicGet('/api/v1/health'))
+        ->toThrow(ConnectionException::class);
+
+    expect($attempts)->toBe(1);
 });

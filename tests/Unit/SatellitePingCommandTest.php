@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 
 it('affiche 200 OK sur un endpoint qui répond', function () {
@@ -53,7 +54,7 @@ it('appelle sans token avec --no-token', function () {
 });
 
 it('affiche un message d\'erreur sur exception réseau', function () {
-    Http::fake(['*' => fn () => throw new \Illuminate\Http\Client\ConnectionException('Connection refused')]);
+    Http::fake(['*' => fn () => throw new ConnectionException('Connection refused')]);
 
     $this->artisan('satellite:ping')
         ->assertFailed();

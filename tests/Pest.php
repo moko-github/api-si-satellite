@@ -1,5 +1,6 @@
 <?php
 
 declare(strict_types=1);
+use Moko\Satellite\Tests\TestCase;
 
-uses(Moko\Satellite\Tests\TestCase::class)->in('Unit');
+uses(TestCase::class)->in('Unit');

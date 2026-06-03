@@ -41,6 +41,7 @@ php artisan vendor:publish --tag=satellite-stubs
 SATELLITE_API_URL=https://api.example.com
 SATELLITE_API_TOKEN=ton-token
 SATELLITE_API_TIMEOUT=10
+SATELLITE_API_RETRIES=2
 SATELLITE_WEBHOOK_SECRET=un-secret-long-et-aléatoire
 SATELLITE_LOG_LEVEL=debug
 SATELLITE_LOG_CHANNEL=satellite
@@ -53,6 +54,8 @@ SATELLITE_VERIFY_SSL=true
 | `SATELLITE_API_URL` | — | URL de base de l’API distante |
 | `SATELLITE_API_TOKEN` | — | Token Bearer pour l’authentification |
 | `SATELLITE_API_TIMEOUT` | `10` | Timeout HTTP en secondes |
+| `SATELLITE_API_RETRIES` | `2` | Nombre de relances en cas d’échec de connexion (`0` = aucune). Avec backoff. |
+| `SATELLITE_API_RETRY_DELAY` | `200` | Délai initial entre tentatives (ms) |
 | `SATELLITE_WEBHOOK_SECRET` | — | Secret HMAC SHA-256 pour vérifier les webhooks (généré automatiquement par `satellite:install`) |
 | `SATELLITE_LOG_LEVEL` | `debug` | Niveau de log du canal `satellite` dans `config/logging.php` |
 | `SATELLITE_LOG_CHANNEL` | `satellite` | Canal Laravel à utiliser pour les logs du client HTTP |
@@ -83,6 +86,7 @@ final class MyApiClient extends SatelliteClient
             timeout:    (int)    config('my-api.timeout', 10),
             logChannel: 'my-api',
             verifySSL:  (bool)   config('my-api.verify_ssl', true),
+            retries:    (int)    config('my-api.retries', 2),
         );
     }
 
@@ -122,7 +126,8 @@ Après `satellite:install`, deux stubs sont disponibles dans `stubs/satellite/` 
 
 ## Gérer les erreurs
 
-`SatelliteException` expose `statusCode`, `endpoint` et `errors` :
+`SatelliteException` expose `statusCode`, `endpoint`, `errors` et `body` (corps
+brut de la réponse, utile pour les erreurs non-JSON : 502 HTML, timeouts…) :
 
 ```php
 use Moko\\Satellite\\Services\\SatelliteException;
@@ -134,9 +139,43 @@ try {
         'status'   => $e->statusCode,
         'endpoint' => $e->endpoint,
         'errors'   => $e->errors,
+        'body'     => $e->body,
     ]);
 }
 ```
+
+---
+
+## Logs & données sensibles
+
+Le client logue les requêtes (`query`, `payload`) sur le canal configuré, au
+niveau `debug`. Les clés sensibles sont **masquées automatiquement**
+(`[REDACTED]`) avant écriture : `password`, `token`, `secret`, `authorization`,
+`api_key`, `access_token`, `refresh_token`… (comparaison insensible à la casse
+et par sous-chaîne, récursive).
+
+Pour ajuster la liste, surcharge `$redactKeys` dans ta sous-classe :
+
+```php
+final class MyApiClient extends SatelliteClient
+{
+    protected array $redactKeys = ['password', 'token', 'ssn', 'iban'];
+}
+```
+
+---
+
+## Relances (retry)
+
+Les requêtes sont automatiquement relancées en cas d’échec de **connexion**
+(DNS, refus, timeout réseau), avec backoff. Par défaut : 2 relances, délai
+initial 200 ms. Configurable via `SATELLITE_API_RETRIES` /
+`SATELLITE_API_RETRY_DELAY` (ou les paramètres `retries` / `retryDelay` du
+constructeur). Mettre `SATELLITE_API_RETRIES=0` désactive les relances.
+
+> Les relances ne s’appliquent qu’aux erreurs de connexion, pas aux réponses
+> HTTP en erreur (4xx/5xx) : un POST/PUT non idempotent ne sera donc jamais
+> rejoué après avoir atteint le serveur.
 
 ---
 

@@ -8,8 +8,8 @@ use Illuminate\Console\Command;
 use Moko\Satellite\Services\SatelliteClient;
 use Moko\Satellite\Services\SatelliteException;
 
-use function Laravel\Prompts\intro;
 use function Laravel\Prompts\error;
+use function Laravel\Prompts\intro;
 use function Laravel\Prompts\note;
 
 final class SatellitePingCommand extends Command
@@ -25,13 +25,18 @@ final class SatellitePingCommand extends Command
     {
         intro('Satellite Ping');
 
-        $endpoint  = (string) $this->option('endpoint');
-        $baseUrl   = (string) ($this->option('url') ?: config('satellite.url'));
-        $token     = $this->option('no-token') ? '' : (string) config('satellite.token');
-        $timeout   = (int) config('satellite.timeout', 10);
+        $endpoint = (string) $this->option('endpoint');
+        $baseUrl = (string) ($this->option('url') ?: config('satellite.url'));
+        $token = $this->option('no-token') ? '' : (string) config('satellite.token');
+        $timeout = (int) config('satellite.timeout', 10);
         $verifySSL = (bool) config('satellite.verify_ssl', true);
 
-        $client = new class($baseUrl, $token, $timeout, 'stack', $verifySSL) extends SatelliteClient {
+        // Pas de relance : un ping doit refléter l'état immédiat de la connectivité.
+        $client = new class($baseUrl, $token, $timeout, 'stack', $verifySSL, retries: 0) extends SatelliteClient
+        {
+            /**
+             * @return array<string, mixed>
+             */
             public function call(string $endpoint): array
             {
                 return $this->get($endpoint);
@@ -41,7 +46,7 @@ final class SatellitePingCommand extends Command
         $start = microtime(true);
 
         try {
-            $data    = $client->call($endpoint);
+            $data = $client->call($endpoint);
             $elapsed = (int) round((microtime(true) - $start) * 1000);
 
             note("GET {$baseUrl}{$endpoint} … 200 OK ({$elapsed}ms)");
