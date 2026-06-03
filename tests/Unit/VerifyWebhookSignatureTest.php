@@ -6,10 +6,14 @@ use Illuminate\Http\Request;
 use Moko\Satellite\Http\Middleware\VerifyWebhookSignature;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
-function makeRequest(string $body, string $signature): Request
+function makeRequest(string $body, string $signature, string $header = 'X-Webhook-Signature', ?string $timestamp = null, string $timestampHeader = 'X-Webhook-Timestamp'): Request
 {
     $request = Request::create('/webhook', 'POST', content: $body);
-    $request->headers->set('X-Webhook-Signature', $signature);
+    $request->headers->set($header, $signature);
+
+    if ($timestamp !== null) {
+        $request->headers->set($timestampHeader, $timestamp);
+    }
 
     return $request;
 }
@@ -73,3 +77,92 @@ it('uses custom config key when provided', function () {
 
     expect($called)->toBeTrue();
 });
+
+// --- Signature header / prefix configurables ---
+
+it('reads the signature from a custom header', function () {
+    config()->set('satellite.webhook.signature_header', 'X-Hub-Signature');
+
+    $body = '{"event":"ping"}';
+    $signature = validSignature($body, config('satellite.webhook_secret'));
+    $request = makeRequest($body, $signature, header: 'X-Hub-Signature');
+
+    $called = false;
+    (new VerifyWebhookSignature)->handle($request, function () use (&$called) {
+        $called = true;
+
+        return response('ok');
+    });
+
+    expect($called)->toBeTrue();
+});
+
+it('accepts a configured signature prefix', function () {
+    config()->set('satellite.webhook.signature_prefix', 'sha256=');
+
+    $body = '{"event":"ping"}';
+    $signature = 'sha256='.validSignature($body, config('satellite.webhook_secret'));
+    $request = makeRequest($body, $signature);
+
+    $called = false;
+    (new VerifyWebhookSignature)->handle($request, function () use (&$called) {
+        $called = true;
+
+        return response('ok');
+    });
+
+    expect($called)->toBeTrue();
+});
+
+it('rejects a signature missing the configured prefix', function () {
+    config()->set('satellite.webhook.signature_prefix', 'sha256=');
+
+    $body = '{"event":"ping"}';
+    $signature = validSignature($body, config('satellite.webhook_secret')); // sans préfixe
+    $request = makeRequest($body, $signature);
+
+    (new VerifyWebhookSignature)->handle($request, fn () => response('ok'));
+})->throws(HttpException::class);
+
+// --- Anti-rejeu (tolerance > 0) ---
+
+it('passes when timestamp is fresh and signature covers timestamp.body', function () {
+    config()->set('satellite.webhook.tolerance', 300);
+
+    $body = '{"event":"user.created"}';
+    $timestamp = (string) time();
+    $secret = config('satellite.webhook_secret');
+    $signature = hash_hmac('sha256', $timestamp.'.'.$body, $secret);
+    $request = makeRequest($body, $signature, timestamp: $timestamp);
+
+    $called = false;
+    (new VerifyWebhookSignature)->handle($request, function () use (&$called) {
+        $called = true;
+
+        return response('ok');
+    });
+
+    expect($called)->toBeTrue();
+});
+
+it('aborts when the timestamp is outside the tolerance (replay)', function () {
+    config()->set('satellite.webhook.tolerance', 300);
+
+    $body = '{"event":"user.created"}';
+    $timestamp = (string) (time() - 3600); // 1h dans le passé
+    $secret = config('satellite.webhook_secret');
+    $signature = hash_hmac('sha256', $timestamp.'.'.$body, $secret);
+    $request = makeRequest($body, $signature, timestamp: $timestamp);
+
+    (new VerifyWebhookSignature)->handle($request, fn () => response('ok'));
+})->throws(HttpException::class);
+
+it('aborts when the timestamp header is missing and tolerance is enabled', function () {
+    config()->set('satellite.webhook.tolerance', 300);
+
+    $body = '{"event":"user.created"}';
+    $signature = hash_hmac('sha256', time().'.'.$body, config('satellite.webhook_secret'));
+    $request = makeRequest($body, $signature); // pas d'horodatage
+
+    (new VerifyWebhookSignature)->handle($request, fn () => response('ok'));
+})->throws(HttpException::class);

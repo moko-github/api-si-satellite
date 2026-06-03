@@ -113,6 +113,28 @@ Route::post('/webhooks/my-api', MyWebhookController::class)
 
 Le middleware lit l’en-tête `X-Webhook-Signature` et la compare via `hash_equals` (temps constant).
 
+#### Personnaliser le protocole
+
+Le protocole de vérification est piloté par `config('satellite.webhook')` :
+
+| Clé / env | Défaut | Rôle |
+|---|---|---|
+| `SATELLITE_WEBHOOK_ALGO` | `sha256` | Algorithme HMAC |
+| `SATELLITE_WEBHOOK_SIGNATURE_HEADER` | `X-Webhook-Signature` | En-tête portant la signature |
+| `SATELLITE_WEBHOOK_SIGNATURE_PREFIX` | _(vide)_ | Préfixe attendu sur la signature (ex : `sha256=` à la GitHub) |
+| `SATELLITE_WEBHOOK_TIMESTAMP_HEADER` | `X-Webhook-Timestamp` | En-tête portant l’horodatage (anti-rejeu) |
+| `SATELLITE_WEBHOOK_TOLERANCE` | `0` | Fenêtre anti-rejeu en secondes (`0` = désactivé) |
+
+**Anti-rejeu (replay).** Tant que `SATELLITE_WEBHOOK_TOLERANCE` vaut `0`, la
+signature porte sur le corps brut (comportement par défaut). Dès que la
+tolérance est positive, l’en-tête d’horodatage devient **obligatoire**, sa
+fraîcheur est vérifiée (`|now − timestamp| ≤ tolérance`) et la signature doit
+porter sur `"{timestamp}.{body}"` (schéma type Stripe) :
+
+```php
+$signature = hash_hmac('sha256', $timestamp.'.'.$body, $secret);
+```
+
 ### 3. Utiliser les stubs publiés
 
 Après `satellite:install`, deux stubs sont disponibles dans `stubs/satellite/` :

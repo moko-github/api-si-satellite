@@ -42,6 +42,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Protocole de vérification des webhooks
+    |--------------------------------------------------------------------------
+    | - signature_prefix : préfixe attendu sur la signature (ex : "sha256=")
+    | - tolerance : fenêtre anti-rejeu en secondes (0 = désactivé). Si > 0,
+    |   l'horodatage est requis et la signature porte sur "{timestamp}.{body}".
+    */
+    'webhook' => [
+        'algo' => env('SATELLITE_WEBHOOK_ALGO', 'sha256'),
+        'signature_header' => env('SATELLITE_WEBHOOK_SIGNATURE_HEADER', 'X-Webhook-Signature'),
+        'signature_prefix' => env('SATELLITE_WEBHOOK_SIGNATURE_PREFIX', ''),
+        'timestamp_header' => env('SATELLITE_WEBHOOK_TIMESTAMP_HEADER', 'X-Webhook-Timestamp'),
+        'tolerance' => (int) env('SATELLITE_WEBHOOK_TOLERANCE', 0),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Canal de log Laravel (doit exister dans config/logging.php)
     |--------------------------------------------------------------------------
     */

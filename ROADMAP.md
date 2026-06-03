@@ -29,8 +29,8 @@ sont livrées ; les autres restent à planifier.
 
 ## Sécurité
 
-- [ ] 🟠 **Anti-rejeu webhook** — signer/valider un timestamp avec fenêtre de tolérance (à la Stripe/GitHub), le HMAC seul ne protège pas du replay.
-- [ ] 🟢 **En-tête et schéma de signature configurables** — `X-Webhook-Signature` est codé en dur ; supporter d'autres en-têtes et le préfixe `sha256=…`.
+- [x] 🟠 **Anti-rejeu webhook** — `SATELLITE_WEBHOOK_TOLERANCE` (opt-in) : horodatage obligatoire + fraîcheur vérifiée, signature sur `{timestamp}.{body}` (schéma Stripe).
+- [x] 🟢 **En-tête et schéma de signature configurables** — `config('satellite.webhook')` : `signature_header`, `signature_prefix` (ex : `sha256=`), `timestamp_header`, `algo`.
 
 ---
 
