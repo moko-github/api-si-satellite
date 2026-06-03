@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Moko\Satellite\Services;
 
+use Generator;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
@@ -12,9 +13,9 @@ use Illuminate\Support\Facades\Log;
 /**
  * Classe de base pour les clients HTTP satellites.
  *
- * Fournit get(), post(), put(), delete() avec logging et gestion d'erreurs.
- * Étendre cette classe dans le package privé pour ajouter des méthodes typées
- * retournant vos DTOs métier.
+ * Fournit get(), post(), put(), patch(), delete() et paginate() avec logging,
+ * relances et gestion d'erreurs typée. Étendre cette classe dans le package
+ * privé pour ajouter des méthodes typées retournant vos DTOs métier.
  *
  * Exemple :
  *   final class ApiSiClient extends SatelliteClient
@@ -72,6 +73,7 @@ abstract class SatelliteClient
         protected readonly bool $verifySSL = true,
         protected readonly int $retries = 2,
         protected readonly int $retryDelay = 200,
+        protected readonly int $connectTimeout = 10,
     ) {
         $this->channel = $this->logChannel !== ''
             ? $this->logChannel
@@ -80,6 +82,7 @@ abstract class SatelliteClient
         $this->http = Http::baseUrl($this->baseUrl)
             ->withToken($this->token)
             ->timeout($this->timeout)
+            ->when($this->connectTimeout > 0, fn ($http) => $http->connectTimeout($this->connectTimeout))
             ->when(! $this->verifySSL, fn ($http) => $http->withoutVerifying())
             ->when(
                 $this->retries > 0,
@@ -96,17 +99,7 @@ abstract class SatelliteClient
      */
     protected function get(string $endpoint, array $query = []): array
     {
-        $this->log('GET', $endpoint, ['query' => $this->redact($query)]);
-
-        $response = $this->http->get($endpoint, $query);
-
-        $this->logResponse('GET', $endpoint, $response->status());
-
-        if ($response->failed()) {
-            throw $this->failure('GET', $endpoint, $response);
-        }
-
-        return $response->json() ?? [];
+        return $this->request('GET', $endpoint, $query)->json() ?? [];
     }
 
     /**
@@ -117,20 +110,12 @@ abstract class SatelliteClient
      */
     protected function post(string $endpoint, array $payload = []): array
     {
-        $this->log('POST', $endpoint, ['payload' => $this->redact($payload)]);
-
-        $response = $this->http->post($endpoint, $payload);
-
-        $this->logResponse('POST', $endpoint, $response->status());
-
-        if ($response->failed()) {
-            throw $this->failure('POST', $endpoint, $response);
-        }
-
-        return $response->json() ?? [];
+        return $this->request('POST', $endpoint, $payload)->json() ?? [];
     }
 
     /**
+     * Remplacement complet d'une ressource (le payload représente l'objet entier).
+     *
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      *
@@ -138,17 +123,20 @@ abstract class SatelliteClient
      */
     protected function put(string $endpoint, array $payload = []): array
     {
-        $this->log('PUT', $endpoint, ['payload' => $this->redact($payload)]);
+        return $this->request('PUT', $endpoint, $payload)->json() ?? [];
+    }
 
-        $response = $this->http->put($endpoint, $payload);
-
-        $this->logResponse('PUT', $endpoint, $response->status());
-
-        if ($response->failed()) {
-            throw $this->failure('PUT', $endpoint, $response);
-        }
-
-        return $response->json() ?? [];
+    /**
+     * Mise à jour partielle d'une ressource (seuls les champs fournis changent).
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     *
+     * @throws SatelliteException
+     */
+    protected function patch(string $endpoint, array $payload = []): array
+    {
+        return $this->request('PATCH', $endpoint, $payload)->json() ?? [];
     }
 
     /**
@@ -156,15 +144,75 @@ abstract class SatelliteClient
      */
     protected function delete(string $endpoint): void
     {
-        $this->log('DELETE', $endpoint);
+        $this->request('DELETE', $endpoint);
+    }
 
-        $response = $this->http->delete($endpoint);
+    /**
+     * Itère sur un endpoint paginé par curseur et yield chaque item, en
+     * suivant automatiquement le curseur de page en page.
+     *
+     * Les clés sont configurables pour s'adapter au format de l'API (notation
+     * « point » supportée via data_get, ex. 'data.items' ou 'meta.next') :
+     *  - $itemsKey    : où lire le tableau d'items dans chaque page
+     *  - $cursorKey   : où lire le curseur de la page suivante
+     *  - $cursorParam : nom du paramètre de query portant le curseur
+     *
+     * @param  array<string, mixed>  $query  Query initiale (filtres, tri…)
+     * @return Generator<int, mixed>
+     *
+     * @throws SatelliteException
+     */
+    protected function paginate(
+        string $endpoint,
+        array $query = [],
+        string $itemsKey = 'data',
+        string $cursorKey = 'next_cursor',
+        string $cursorParam = 'cursor',
+    ): Generator {
+        $cursor = null;
 
-        $this->logResponse('DELETE', $endpoint, $response->status());
+        do {
+            $page = $this->get(
+                $endpoint,
+                $cursor === null ? $query : [...$query, $cursorParam => $cursor],
+            );
+
+            foreach ((array) data_get($page, $itemsKey, []) as $item) {
+                yield $item;
+            }
+
+            $cursor = data_get($page, $cursorKey);
+        } while ($cursor !== null && $cursor !== '');
+    }
+
+    /**
+     * Point d'entrée unique : log → requête (avec relances) → log réponse →
+     * contrôle d'échec → exception typée. Tout nouveau verbe en hérite.
+     *
+     * @param  array<string, mixed>  $data  Query (GET) ou payload JSON (autres verbes)
+     *
+     * @throws SatelliteException
+     */
+    protected function request(string $method, string $endpoint, array $data = []): Response
+    {
+        $method = strtoupper($method);
+
+        $this->log($method, $endpoint, $this->logContext($method, $data));
+
+        $options = match ($method) {
+            'GET' => $data === [] ? [] : ['query' => $data],
+            default => $data === [] ? [] : ['json' => $data],
+        };
+
+        $response = $this->http->send($method, $endpoint, $options);
+
+        $this->logResponse($method, $endpoint, $response->status());
 
         if ($response->failed()) {
-            throw $this->failure('DELETE', $endpoint, $response);
+            throw $this->failure($method, $endpoint, $response);
         }
+
+        return $response;
     }
 
     /**
@@ -180,6 +228,23 @@ abstract class SatelliteClient
             errors: $response->json('errors') ?? [],
             body: $response->body(),
         );
+    }
+
+    /**
+     * Contexte de log d'une requête, payload/query masqué le cas échéant.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function logContext(string $method, array $data): array
+    {
+        if ($data === []) {
+            return [];
+        }
+
+        $key = $method === 'GET' ? 'query' : 'payload';
+
+        return [$key => $this->redact($data)];
     }
 
     /**

@@ -25,8 +25,14 @@ et le projet suit le [versionnage sémantique](https://semver.org/lang/fr/).
   `SATELLITE_WEBHOOK_TOLERANCE` (horodatage requis et signature sur
   `{timestamp}.{body}`, schéma type Stripe).
 - Variables `SATELLITE_LOG_CHANNEL` ajoutées aux blocs `.env` de `satellite:install`.
+- `SatelliteClient::patch()` pour les mises à jour partielles de ressource.
+- `SatelliteClient::paginate()` : itération paresseuse sur un endpoint paginé par
+  curseur (clés `itemsKey`/`cursorKey`/`cursorParam` configurables).
+- Timeout de connexion distinct via `SATELLITE_API_CONNECT_TIMEOUT` (défaut 10 s).
 
 ### Modifié
+- `SatelliteClient` : tous les verbes (`get`/`post`/`put`/`patch`/`delete`)
+  passent par un `request()` interne unique (log, relances, gestion d'erreur).
 - `SatelliteClient` résout désormais son canal de log depuis
   `config('satellite.log_channel')` lorsque `logChannel` n'est pas fourni.
 - `satellite:install` avertit explicitement lorsque `config/logging.php` est

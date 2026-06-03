@@ -24,6 +24,15 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Timeout d'établissement de la connexion (secondes)
+    |--------------------------------------------------------------------------
+    | Distinct du timeout global : borne le temps d'ouverture de la connexion
+    | TCP/TLS. 0 = pas de limite spécifique.
+    */
+    'connect_timeout' => (int) env('SATELLITE_API_CONNECT_TIMEOUT', 10),
+
+    /*
+    |--------------------------------------------------------------------------
     | Relances HTTP
     |--------------------------------------------------------------------------
     | Nombre de tentatives supplémentaires en cas d'échec de connexion

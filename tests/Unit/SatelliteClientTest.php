@@ -25,9 +25,23 @@ final class TestableClient extends SatelliteClient
         return $this->put($endpoint, $payload);
     }
 
+    public function publicPatch(string $endpoint, array $payload = []): array
+    {
+        return $this->patch($endpoint, $payload);
+    }
+
     public function publicDelete(string $endpoint): void
     {
         $this->delete($endpoint);
+    }
+
+    /**
+     * @param  array<string, mixed>  $query
+     * @return Generator<int, mixed>
+     */
+    public function publicPaginate(string $endpoint, array $query = [], string $itemsKey = 'data', string $cursorKey = 'next_cursor', string $cursorParam = 'cursor'): Generator
+    {
+        return $this->paginate($endpoint, $query, $itemsKey, $cursorKey, $cursorParam);
     }
 
     /**
@@ -120,6 +134,32 @@ it('throws SatelliteException on PUT failure', function () {
     Http::fake(['https://api.example.com/api/v1/users/1' => Http::response(null, 403)]);
 
     expect(fn () => makeClient()->publicPut('/api/v1/users/1', []))
+        ->toThrow(SatelliteException::class);
+});
+
+// --- PATCH ---
+
+it('performs PATCH and returns decoded array', function () {
+    Http::fake(['https://api.example.com/api/v1/users/1' => Http::response(['patched' => true], 200)]);
+
+    $result = makeClient()->publicPatch('/api/v1/users/1', ['email' => 'new@example.com']);
+
+    expect($result)->toBe(['patched' => true]);
+});
+
+it('sends a JSON body on PATCH', function () {
+    Http::fake(['https://api.example.com/api/v1/users/1' => Http::response([], 200)]);
+
+    makeClient()->publicPatch('/api/v1/users/1', ['email' => 'new@example.com']);
+
+    Http::assertSent(fn ($request) => $request->method() === 'PATCH'
+        && $request['email'] === 'new@example.com');
+});
+
+it('throws SatelliteException on PATCH failure', function () {
+    Http::fake(['https://api.example.com/api/v1/users/1' => Http::response(['errors' => ['invalid']], 422)]);
+
+    expect(fn () => makeClient()->publicPatch('/api/v1/users/1', []))
         ->toThrow(SatelliteException::class);
 });
 
@@ -240,4 +280,54 @@ it('does not retry when retries is zero', function () {
         ->toThrow(ConnectionException::class);
 
     expect($attempts)->toBe(1);
+});
+
+// --- Pagination ---
+
+it('follows the cursor across pages and yields every item', function () {
+    Http::fake([
+        'https://api.example.com/api/v1/items*' => Http::sequence()
+            ->push(['data' => [['id' => 1], ['id' => 2]], 'next_cursor' => 'abc'], 200)
+            ->push(['data' => [['id' => 3]], 'next_cursor' => null], 200),
+    ]);
+
+    $items = iterator_to_array(makeClient()->publicPaginate('/api/v1/items'), false);
+
+    expect($items)->toBe([['id' => 1], ['id' => 2], ['id' => 3]]);
+});
+
+it('passes the cursor as a query parameter on subsequent pages', function () {
+    Http::fake([
+        'https://api.example.com/api/v1/items*' => Http::sequence()
+            ->push(['data' => [['id' => 1]], 'next_cursor' => 'page-2'], 200)
+            ->push(['data' => [['id' => 2]], 'next_cursor' => null], 200),
+    ]);
+
+    iterator_to_array(makeClient()->publicPaginate('/api/v1/items'), false);
+
+    Http::assertSent(fn ($request) => str_contains($request->url(), 'cursor=page-2'));
+});
+
+it('supports dot-notation keys for items and cursor', function () {
+    Http::fake([
+        'https://api.example.com/api/v1/items*' => Http::sequence()
+            ->push(['result' => ['rows' => [['id' => 1]]], 'meta' => ['next' => 'c2']], 200)
+            ->push(['result' => ['rows' => [['id' => 2]]], 'meta' => ['next' => null]], 200),
+    ]);
+
+    $items = iterator_to_array(
+        makeClient()->publicPaginate('/api/v1/items', itemsKey: 'result.rows', cursorKey: 'meta.next'),
+        false,
+    );
+
+    expect($items)->toBe([['id' => 1], ['id' => 2]]);
+});
+
+it('stops after a single page when there is no cursor', function () {
+    Http::fake(['https://api.example.com/api/v1/items*' => Http::response(['data' => [['id' => 1]]], 200)]);
+
+    $items = iterator_to_array(makeClient()->publicPaginate('/api/v1/items'), false);
+
+    expect($items)->toBe([['id' => 1]]);
+    Http::assertSentCount(1);
 });

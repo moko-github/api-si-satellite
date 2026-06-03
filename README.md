@@ -41,6 +41,7 @@ php artisan vendor:publish --tag=satellite-stubs
 SATELLITE_API_URL=https://api.example.com
 SATELLITE_API_TOKEN=ton-token
 SATELLITE_API_TIMEOUT=10
+SATELLITE_API_CONNECT_TIMEOUT=10
 SATELLITE_API_RETRIES=2
 SATELLITE_WEBHOOK_SECRET=un-secret-long-et-aléatoire
 SATELLITE_LOG_LEVEL=debug
@@ -53,7 +54,8 @@ SATELLITE_VERIFY_SSL=true
 |---|---|---|
 | `SATELLITE_API_URL` | — | URL de base de l’API distante |
 | `SATELLITE_API_TOKEN` | — | Token Bearer pour l’authentification |
-| `SATELLITE_API_TIMEOUT` | `10` | Timeout HTTP en secondes |
+| `SATELLITE_API_TIMEOUT` | `10` | Timeout HTTP global en secondes |
+| `SATELLITE_API_CONNECT_TIMEOUT` | `10` | Timeout d’établissement de la connexion TCP/TLS (`0` = pas de limite) |
 | `SATELLITE_API_RETRIES` | `2` | Nombre de relances en cas d’échec de connexion (`0` = aucune). Avec backoff. |
 | `SATELLITE_API_RETRY_DELAY` | `200` | Délai initial entre tentatives (ms) |
 | `SATELLITE_WEBHOOK_SECRET` | — | Secret HMAC SHA-256 pour vérifier les webhooks (généré automatiquement par `satellite:install`) |
@@ -93,6 +95,39 @@ final class MyApiClient extends SatelliteClient
     public function getResource(int $id): MyResourceDTO
     {
         return MyResourceDTO::fromArray($this->get("/api/v1/resources/{$id}"));
+    }
+}
+```
+
+#### Verbes disponibles
+
+`get()`, `post()`, `put()`, `patch()`, `delete()` partagent tous le même socle
+(relances, masquage des logs, gestion d’erreur typée) via un `request()` interne.
+
+- **`put()`** = remplacement **complet** de la ressource (le payload représente l’objet entier).
+- **`patch()`** = mise à jour **partielle** (seuls les champs fournis changent) :
+
+```php
+public function renameResource(int $id, string $name): MyResourceDTO
+{
+    return MyResourceDTO::fromArray(
+        $this->patch("/api/v1/resources/{$id}", ['name' => $name])
+    );
+}
+```
+
+#### Pagination par curseur
+
+`paginate()` suit automatiquement le curseur et `yield` chaque item (itération
+paresseuse, adaptée aux gros volumes). Les clés sont configurables selon le
+format de l’API (notation « point » supportée) :
+
+```php
+/** @return iterable<MyResourceDTO> */
+public function allResources(): iterable
+{
+    foreach ($this->paginate('/api/v1/resources', itemsKey: 'data', cursorKey: 'meta.next_cursor') as $item) {
+        yield MyResourceDTO::fromArray($item);
     }
 }
 ```

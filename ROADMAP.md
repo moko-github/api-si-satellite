@@ -18,12 +18,12 @@ sont livrées ; les autres restent à planifier.
 
 ---
 
-## Robustesse / résilience
+## Robustesse / résilience ✅ livré
 
-- [ ] 🟠 **Factoriser `request()`** — centraliser le pattern requête → check `failed()` → throw, partagé par toutes les méthodes (le logging est déjà factorisé via `log()`/`logResponse()`).
-- [ ] 🟢 **Méthode `PATCH`** — absente (GET/POST/PUT/DELETE seulement).
-- [ ] 🟢 **`DELETE` renvoyant un corps** — actuellement `void`, jette la réponse ; gérer les API qui répondent du contenu.
-- [ ] 🟢 **`connectTimeout` distinct** du timeout global.
+- [x] 🟠 **Factoriser `request()`** — point d'entrée unique (log → requête → log réponse → check `failed()` → throw) ; tous les verbes en héritent.
+- [x] 🟢 **Méthode `PATCH`** — ajoutée (mise à jour partielle).
+- [x] 🟢 **`connectTimeout` distinct** — `SATELLITE_API_CONNECT_TIMEOUT` (défaut 10 s).
+- [ ] 🟢 **`DELETE` renvoyant un corps** — actuellement `void`, jette la réponse ; gérer les API qui répondent du contenu. *(non retenu pour l'instant : éviterait de casser la signature `: void` ; à rouvrir si un besoin concret apparaît.)*
 
 ---
 
@@ -48,4 +48,4 @@ sont livrées ; les autres restent à planifier.
 
 ## Idées / évolutions
 
-- [ ] 🟢 **Helper de pagination cursor-based** — le stub `SyncJob` y fait référence mais le client n'offre aucun helper.
+- [x] 🟢 **Helper de pagination cursor-based** — `SatelliteClient::paginate()` suit le curseur et yield chaque item (clés `itemsKey`/`cursorKey`/`cursorParam` configurables, notation « point »). Stub `SyncJob` mis à jour.
