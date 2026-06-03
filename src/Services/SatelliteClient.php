@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace Moko\Satellite\Services;
 
 use Generator;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * Classe de base pour les clients HTTP satellites.
@@ -65,19 +68,36 @@ abstract class SatelliteClient
         'refresh_token',
     ];
 
+    protected readonly int $timeout;
+
+    protected readonly int $retries;
+
+    protected readonly int $retryDelay;
+
+    protected readonly int $connectTimeout;
+
+    /**
+     * Les paramètres int laissés à null sont résolus depuis config('satellite.*'),
+     * afin que les variables SATELLITE_* documentées prennent effet par défaut.
+     */
     public function __construct(
         protected readonly string $baseUrl,
         protected readonly string $token,
-        protected readonly int $timeout = 10,
-        protected readonly string $logChannel = '',
+        ?int $timeout = null,
+        string $logChannel = '',
         protected readonly bool $verifySSL = true,
-        protected readonly int $retries = 2,
-        protected readonly int $retryDelay = 200,
-        protected readonly int $connectTimeout = 10,
+        ?int $retries = null,
+        ?int $retryDelay = null,
+        ?int $connectTimeout = null,
     ) {
-        $this->channel = $this->logChannel !== ''
-            ? $this->logChannel
+        $this->channel = $logChannel !== ''
+            ? $logChannel
             : (string) config('satellite.log_channel', 'stack');
+
+        $this->timeout = $timeout ?? (int) config('satellite.timeout', 10);
+        $this->retries = $retries ?? (int) config('satellite.retries', 2);
+        $this->retryDelay = $retryDelay ?? (int) config('satellite.retry_delay', 200);
+        $this->connectTimeout = $connectTimeout ?? (int) config('satellite.connect_timeout', 10);
 
         $this->http = Http::baseUrl($this->baseUrl)
             ->withToken($this->token)
@@ -86,9 +106,36 @@ abstract class SatelliteClient
             ->when(! $this->verifySSL, fn ($http) => $http->withoutVerifying())
             ->when(
                 $this->retries > 0,
-                fn ($http) => $http->retry($this->retries + 1, $this->retryDelay, throw: false),
+                fn ($http) => $http->retry(
+                    $this->retries + 1,
+                    $this->retryDelay,
+                    fn (Throwable $e) => $this->shouldRetry($e),
+                    throw: false,
+                ),
             )
             ->acceptJson();
+    }
+
+    /**
+     * Décide si une tentative échouée doit être rejouée.
+     *
+     * On rejoue uniquement les échecs transitoires : erreurs de connexion
+     * (DNS, refus, timeout réseau), throttling (429) et erreurs serveur (5xx).
+     * Les erreurs 4xx déterministes (422, 404, 401…) ne sont jamais rejouées.
+     */
+    protected function shouldRetry(Throwable $e): bool
+    {
+        if ($e instanceof ConnectionException) {
+            return true;
+        }
+
+        if ($e instanceof RequestException) {
+            $status = $e->response->status();
+
+            return $status === 429 || $status >= 500;
+        }
+
+        return false;
     }
 
     /**
@@ -199,9 +246,13 @@ abstract class SatelliteClient
 
         $this->log($method, $endpoint, $this->logContext($method, $data));
 
+        // POST/PUT/PATCH envoient toujours un corps JSON (donc Content-Type:
+        // application/json), même vide, comme les helpers natifs de Laravel.
+        // GET et DELETE n'ajoutent rien quand il n'y a pas de paramètres.
         $options = match ($method) {
             'GET' => $data === [] ? [] : ['query' => $data],
-            default => $data === [] ? [] : ['json' => $data],
+            'DELETE' => $data === [] ? [] : ['json' => $data],
+            default => ['json' => $data],
         };
 
         $response = $this->http->send($method, $endpoint, $options);

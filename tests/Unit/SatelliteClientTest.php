@@ -282,6 +282,57 @@ it('does not retry when retries is zero', function () {
     expect($attempts)->toBe(1);
 });
 
+it('retries on a 503 server error then succeeds', function () {
+    Http::fake([
+        'https://api.example.com/api/v1/health' => Http::sequence()
+            ->pushStatus(503)
+            ->push(['ok' => true], 200),
+    ]);
+
+    $result = makeClient(retries: 2)->publicGet('/api/v1/health');
+
+    expect($result)->toBe(['ok' => true]);
+    Http::assertSentCount(2);
+});
+
+it('retries on a 429 throttling response', function () {
+    Http::fake([
+        'https://api.example.com/api/v1/health' => Http::sequence()
+            ->pushStatus(429)
+            ->push(['ok' => true], 200),
+    ]);
+
+    makeClient(retries: 2)->publicGet('/api/v1/health');
+
+    Http::assertSentCount(2);
+});
+
+it('does not retry a 422 client error', function () {
+    Http::fake(['https://api.example.com/api/v1/users' => Http::response(['errors' => ['invalid']], 422)]);
+
+    expect(fn () => makeClient(retries: 2)->publicPost('/api/v1/users', ['x' => 1]))
+        ->toThrow(SatelliteException::class);
+
+    Http::assertSentCount(1);
+});
+
+it('does not retry a 404 not-found response', function () {
+    Http::fake(['https://api.example.com/api/v1/users/99' => Http::response(null, 404)]);
+
+    expect(fn () => makeClient(retries: 2)->publicGet('/api/v1/users/99'))
+        ->toThrow(SatelliteException::class);
+
+    Http::assertSentCount(1);
+});
+
+it('sends a JSON content-type on POST even with an empty payload', function () {
+    Http::fake(['https://api.example.com/api/v1/actions/run' => Http::response([], 200)]);
+
+    makeClient()->publicPost('/api/v1/actions/run');
+
+    Http::assertSent(fn ($request) => $request->hasHeader('Content-Type', 'application/json'));
+});
+
 // --- Pagination ---
 
 it('follows the cursor across pages and yields every item', function () {

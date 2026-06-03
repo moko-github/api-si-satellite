@@ -196,10 +196,14 @@ try {
         'status'   => $e->statusCode,
         'endpoint' => $e->endpoint,
         'errors'   => $e->errors,
-        'body'     => $e->body,
     ]);
 }
 ```
+
+> ⚠️ `$e->body` contient la réponse **brute, non masquée**. Contrairement aux
+> `query`/`payload` des requêtes (qui passent par la redaction), un corps de
+> réponse peut contenir des secrets/PII : ne le loggue pas tel quel sur un canal
+> non maîtrisé.
 
 ---
 
@@ -224,15 +228,24 @@ final class MyApiClient extends SatelliteClient
 
 ## Relances (retry)
 
-Les requêtes sont automatiquement relancées en cas d’échec de **connexion**
-(DNS, refus, timeout réseau), avec backoff. Par défaut : 2 relances, délai
-initial 200 ms. Configurable via `SATELLITE_API_RETRIES` /
-`SATELLITE_API_RETRY_DELAY` (ou les paramètres `retries` / `retryDelay` du
-constructeur). Mettre `SATELLITE_API_RETRIES=0` désactive les relances.
+Les requêtes sont automatiquement relancées sur les échecs **transitoires**,
+avec backoff. Par défaut : 2 relances, délai initial 200 ms. Configurable via
+`SATELLITE_API_RETRIES` / `SATELLITE_API_RETRY_DELAY` (ou les paramètres
+`retries` / `retryDelay` du constructeur). Mettre `SATELLITE_API_RETRIES=0`
+désactive les relances.
 
-> Les relances ne s’appliquent qu’aux erreurs de connexion, pas aux réponses
-> HTTP en erreur (4xx/5xx) : un POST/PUT non idempotent ne sera donc jamais
-> rejoué après avoir atteint le serveur.
+Sont rejoués :
+- les **erreurs de connexion** (DNS, refus, timeout réseau) ;
+- le **throttling** (`429`) ;
+- les **erreurs serveur** (`5xx`).
+
+Ne sont **jamais** rejoués : les `4xx` déterministes (`422`, `404`, `401`…),
+qui échoueraient à l’identique.
+
+> ⚠️ Les `5xx` étant rejoués, un `POST`/`PUT` **non idempotent** peut être
+> exécuté plusieurs fois si le serveur a traité la requête avant de renvoyer
+> une erreur. Pour ces écritures, mettez `retries: 0` ou prévoyez une clé
+> d’idempotence côté API.
 
 ---
 

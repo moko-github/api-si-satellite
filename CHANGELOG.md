@@ -33,8 +33,18 @@ et le projet suit le [versionnage sémantique](https://semver.org/lang/fr/).
 ### Modifié
 - `SatelliteClient` : tous les verbes (`get`/`post`/`put`/`patch`/`delete`)
   passent par un `request()` interne unique (log, relances, gestion d'erreur).
-- `SatelliteClient` résout désormais son canal de log depuis
-  `config('satellite.log_channel')` lorsque `logChannel` n'est pas fourni.
+- `SatelliteClient` résout désormais `timeout`, `retries`, `retry_delay` et
+  `connect_timeout` depuis `config('satellite.*')` quand ils ne sont pas passés
+  au constructeur (les variables `SATELLITE_API_*` prennent enfin effet par défaut).
+
+### Corrigé
+- Relances : ne rejouent plus que les échecs transitoires (connexion, `429`,
+  `5xx`). Les erreurs `4xx` déterministes (ex. `422`) ne sont plus rejouées
+  inutilement (auparavant toute réponse non-2xx était relancée).
+- `POST`/`PUT`/`PATCH` avec payload vide envoient de nouveau un corps JSON et
+  l'en-tête `Content-Type: application/json` (régression du refactor `request()`).
+- `satellite:install` : insertion du canal de log via remplacement de la
+  première occurrence du marqueur uniquement (évite les doublons).
 - `satellite:install` avertit explicitement lorsque `config/logging.php` est
   absent ou que le marqueur d'insertion est introuvable, au lieu d'échouer
   silencieusement.
