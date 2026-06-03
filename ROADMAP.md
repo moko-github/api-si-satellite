@@ -48,4 +48,38 @@ sont livrées ; les autres restent à planifier.
 
 ## Idées / évolutions
 
+> Cette section va au-delà du périmètre de la revue initiale : c'est un backlog
+> ouvert de pistes d'amélioration, à prioriser selon les besoins réels.
+
 - [x] 🟢 **Helper de pagination cursor-based** — `SatelliteClient::paginate()` suit le curseur et yield chaque item (clés `itemsKey`/`cursorKey`/`cursorParam` configurables, notation « point »). Stub `SyncJob` mis à jour.
+
+### Résilience réseau
+
+- [ ] 🟠 **Gestion du `429 / Retry-After`** — relancer aussi sur throttling en respectant l'en-tête `Retry-After` (le retry actuel ne couvre que les erreurs de connexion).
+- [ ] 🟢 **Relance sur 5xx idempotents** — option pour rejouer les `GET`/`PUT`/`DELETE` (idempotents) sur erreur serveur transitoire, sans toucher aux `POST`.
+- [ ] 🟢 **Idempotency keys** — en-tête `Idempotency-Key` optionnel sur les écritures, pour éviter les doublons en cas de relance.
+- [ ] 🟢 **Requêtes concurrentes** — exposer `Http::pool()` pour paralléliser la synchro de gros volumes.
+
+### Robustesse client
+
+- [ ] 🟢 **`DELETE` renvoyant un corps / query** — gérer les API qui répondent du contenu ou attendent des paramètres sur un delete (voir aussi section Robustesse).
+- [ ] 🟢 **Réponses non-JSON** — helper pour récupérer un binaire/CSV (export de fichiers) sans passer par `json()`.
+
+### Observabilité
+
+- [ ] 🟠 **Durée des requêtes dans les logs** — mesurer et logger le temps de réponse (utile en prod).
+- [ ] 🟢 **Identifiant de corrélation** — propager/loguer un `request-id` (en-tête sortant + champ de log) pour tracer une requête de bout en bout.
+- [ ] 🟢 **Métriques** — points d'extension (events) pour brancher des compteurs (succès/échecs/latence).
+
+### Qualité & distribution
+
+- [ ] 🟠 **Versionnement & releases** — taguer une `v1.0.0`, publier sur Packagist, faire vivre le `CHANGELOG` (sections versionnées plutôt que seulement « Non publié »).
+- [ ] 🟢 **Montée PHPStan niveau 8-9** — resserrer l'analyse statique au-delà du niveau 6 actuel.
+- [ ] 🟢 **Mutation testing** — activer `pest --mutate` pour mesurer la qualité réelle des tests.
+- [ ] 🟢 **Couverture de code** — rapport de couverture en CI (badge / seuil minimal).
+
+### Sécurité (compléments)
+
+- [ ] 🟢 **Taille maximale de payload webhook** — borne pour éviter qu'un corps énorme ne soit hashé/loggé.
+- [ ] 🟢 **Rotation du secret webhook** — accepter plusieurs secrets simultanés le temps d'une rotation.
+
