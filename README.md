@@ -62,6 +62,43 @@ SATELLITE_VERIFY_SSL=true
 > `SATELLITE_LOG_CHANNEL` contrôle **dans quel canal** on logue.
 > Les deux sont complémentaires : le canal `satellite` est créé dans `config/logging.php` par `satellite:install`, avec `SATELLITE_LOG_LEVEL` comme niveau minimum.
 
+### Dépannage : le canal de log `satellite` n’a pas été créé
+
+`satellite:install` insère le canal `satellite` dans `config/logging.php` en
+l’ajoutant au tableau `'channels'`. Si votre fichier `config/logging.php` est
+fortement personnalisé (tableau `'channels'` absent, par exemple), la commande
+**ne modifie pas le fichier en silence** : elle affiche un avertissement et le
+snippet à coller manuellement.
+
+La commande est **idempotente** : vous pouvez la relancer sans risque.
+
+```bash
+php artisan satellite:install
+```
+
+- Si le canal existe déjà : `Canal de log 'satellite' déjà présent…`
+- Si le canal manque et peut être ajouté : il est inséré et vérifié après écriture.
+- Si la commande ne peut pas l’ajouter (fichier atypique, droits d’écriture) :
+  un **avertissement** s’affiche avec les instructions ci-dessous.
+
+Pour l’ajouter manuellement, collez ce bloc dans le tableau `'channels'` de
+`config/logging.php` :
+
+```php
+'satellite' => [
+    'driver' => 'daily',
+    'path'   => storage_path('logs/satellite.log'),
+    'level'  => env('SATELLITE_LOG_LEVEL', 'debug'),
+    'days'   => 14,
+],
+```
+
+> Si vous préférez réutiliser un canal existant plutôt que d’en créer un, pointez
+> simplement `SATELLITE_LOG_CHANNEL` vers ce canal (ex : `SATELLITE_LOG_CHANNEL=stack`).
+
+Vérifiez ensuite que tout est en place avec `php artisan satellite:ping`
+(voir [Tester la connectivité](#tester-la-connectivité)).
+
 ---
 
 ## Utilisation
