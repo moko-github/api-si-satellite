@@ -6,7 +6,7 @@ namespace Moko\Satellite\Services;
 
 use RuntimeException;
 
-final class SatelliteException extends RuntimeException
+class SatelliteException extends RuntimeException
 {
     /**
      * @param  array<string, mixed>  $errors

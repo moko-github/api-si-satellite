@@ -28,3 +28,11 @@ it('defaults errors to empty array', function () {
 
     expect($exception->errors)->toBe([]);
 });
+
+it('can be extended by satellite-specific exceptions', function () {
+    $child = new class('Boom', 500, '/api/v1/health') extends SatelliteException {};
+
+    expect($child)->toBeInstanceOf(SatelliteException::class)
+        ->and($child->statusCode)->toBe(500)
+        ->and($child->endpoint)->toBe('/api/v1/health');
+});
