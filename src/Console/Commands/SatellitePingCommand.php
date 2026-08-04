@@ -6,6 +6,7 @@ namespace Moko\Satellite\Console\Commands;
 
 use Illuminate\Console\Command;
 use Moko\Satellite\Services\SatelliteClient;
+use Moko\Satellite\Services\SatelliteConnectionException;
 use Moko\Satellite\Services\SatelliteException;
 
 use function Laravel\Prompts\intro;
@@ -52,6 +53,15 @@ final class SatellitePingCommand extends Command
             }
 
             return self::SUCCESS;
+        } catch (SatelliteConnectionException $e) {
+            $elapsed = (int) round((microtime(true) - $start) * 1000);
+
+            // L'API n'a rien répondu : son code de statut vaut 0 et n'apprendrait rien.
+            // Le motif du transport — DNS, refus, délai — est toute l'information utile ici.
+            error("GET {$baseUrl}{$endpoint} … injoignable ({$elapsed}ms)");
+            $this->line('  '.$e->getPrevious()?->getMessage());
+
+            return self::FAILURE;
         } catch (SatelliteException $e) {
             $elapsed = (int) round((microtime(true) - $start) * 1000);
             error("GET {$baseUrl}{$endpoint} … {$e->statusCode} ({$elapsed}ms)");

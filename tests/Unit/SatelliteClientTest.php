@@ -2,8 +2,10 @@
 
 declare(strict_types=1);
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Moko\Satellite\Services\SatelliteClient;
+use Moko\Satellite\Services\SatelliteConnectionException;
 use Moko\Satellite\Services\SatelliteException;
 
 // Concrete test double — exposes protected methods publicly
@@ -142,4 +144,73 @@ it('disables SSL verification when verifySSL is false', function () {
     makeClient(verifySSL: false)->publicGet('/api/v1/health');
 
     Http::assertSent(fn ($request) => $request->url() === 'https://api.example.com/api/v1/health');
+});
+
+// --- Panne de transport : l'API n'a pas répondu du tout ---
+
+/**
+ * Le cas que ces tests verrouillent : une API injoignable doit ressortir en
+ * `SatelliteException`, sinon tous les `catch (SatelliteException)` des satellites — écrits
+ * précisément pour se dégrader quand l'API est indisponible — laissent passer l'erreur.
+ */
+function failConnection(string $reason = 'cURL error 6: Could not resolve host'): void
+{
+    Http::fake(fn () => throw new ConnectionException($reason));
+}
+
+it('converts a connection failure into a SatelliteException on GET', function () {
+    failConnection();
+
+    expect(fn () => makeClient()->publicGet('/api/v1/users'))
+        ->toThrow(SatelliteException::class);
+});
+
+it('converts a connection failure into a SatelliteException on POST', function () {
+    failConnection();
+
+    expect(fn () => makeClient()->publicPost('/api/v1/users', []))
+        ->toThrow(SatelliteException::class);
+});
+
+it('converts a connection failure into a SatelliteException on PUT', function () {
+    failConnection();
+
+    expect(fn () => makeClient()->publicPut('/api/v1/users/1', []))
+        ->toThrow(SatelliteException::class);
+});
+
+it('converts a connection failure into a SatelliteException on DELETE', function () {
+    failConnection();
+
+    expect(fn () => makeClient()->publicDelete('/api/v1/users/1'))
+        ->toThrow(SatelliteException::class);
+});
+
+it('reports no status code — the API never answered', function () {
+    failConnection();
+
+    try {
+        makeClient()->publicGet('/api/v1/users');
+    } catch (SatelliteConnectionException $e) {
+        expect($e->statusCode)->toBe(0)
+            ->and($e->endpoint)->toBe('/api/v1/users');
+    }
+});
+
+it('keeps the transport failure as previous — the reason stays diagnosable', function () {
+    failConnection('cURL error 28: Operation timed out');
+
+    try {
+        makeClient()->publicGet('/api/v1/users');
+    } catch (SatelliteConnectionException $e) {
+        expect($e->getPrevious())->toBeInstanceOf(ConnectionException::class)
+            ->and($e->getMessage())->toContain('Operation timed out');
+    }
+});
+
+it('leaves a status failure as a plain SatelliteException', function () {
+    Http::fake(['https://api.example.com/api/v1/users' => Http::response(null, 500)]);
+
+    expect(fn () => makeClient()->publicGet('/api/v1/users'))
+        ->not->toThrow(SatelliteConnectionException::class);
 });

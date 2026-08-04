@@ -175,6 +175,32 @@ try {
 }
 ```
 
+### API injoignable
+
+Une panne de transport — DNS introuvable, connexion refusée, délai dépassé — ne produit
+**aucune réponse HTTP**. Le client la traduit en `SatelliteConnectionException`, qui hérite de
+`SatelliteException` : le `catch` ci-dessus la couvre déjà, sans rien changer.
+
+C'est délibéré. Un satellite qui rattrape `SatelliteException` le fait presque toujours pour se
+dégrader quand l'API est indisponible ; laisser filer la `ConnectionException` casserait l'écran
+précisément dans ce cas-là.
+
+`statusCode` vaut alors `0` — l'API n'a rien répondu, il n'y a pas de code à rapporter, et `0` ne
+peut pas être confondu avec un 503 émis par le serveur. Le motif réel reste dans `getPrevious()`.
+
+```php
+use Moko\\Satellite\\Services\\SatelliteConnectionException;
+
+try {
+    $data = $client->getResource(42);
+} catch (SatelliteConnectionException $e) {
+    // API injoignable — dégrader l'affichage, réessayer plus tard
+    Log::warning('API unreachable', ['reason' => $e->getPrevious()?->getMessage()]);
+} catch (SatelliteException $e) {
+    // L'API a répondu, mais en erreur
+}
+```
+
 ---
 
 ## Tester la connectivité
@@ -226,6 +252,7 @@ src/
 │   └── VerifyWebhookSignature.php
 └── Services/
     ├── SatelliteClient.php
+    ├── SatelliteConnectionException.php
     └── SatelliteException.php
 config/
 └── satellite.php
