@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Moko\Satellite\Services;
 
 use RuntimeException;
+use Throwable;
 
 class SatelliteException extends RuntimeException
 {
@@ -16,7 +17,8 @@ class SatelliteException extends RuntimeException
         public readonly int $statusCode,
         public readonly string $endpoint,
         public readonly array $errors = [],
+        ?Throwable $previous = null,
     ) {
-        parent::__construct($message, $statusCode);
+        parent::__construct($message, $statusCode, $previous);
     }
 }

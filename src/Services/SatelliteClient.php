@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Moko\Satellite\Services;
 
+use Closure;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -54,6 +57,33 @@ abstract class SatelliteClient
     }
 
     /**
+     * Exécute l'appel HTTP en traduisant une panne de transport en {@see SatelliteException}.
+     *
+     * Sans cette traduction, une API injoignable — DNS introuvable, connexion refusée, délai
+     * dépassé — remonte en `ConnectionException` et traverse intacte les `catch
+     * (SatelliteException)` des satellites. Les écrans écrits pour se dégrader proprement quand
+     * l'API est indisponible cassent alors précisément dans ce cas-là, le seul pour lequel ils
+     * avaient été écrits.
+     *
+     * @param  Closure(): Response  $call
+     *
+     * @throws SatelliteConnectionException
+     */
+    private function send(string $endpoint, Closure $call): Response
+    {
+        try {
+            return $call();
+        } catch (ConnectionException $e) {
+            Log::channel($this->logChannel)->warning('[SatelliteClient] API injoignable', [
+                'endpoint' => $endpoint,
+                'reason' => $e->getMessage(),
+            ]);
+
+            throw new SatelliteConnectionException($endpoint, $e);
+        }
+    }
+
+    /**
      * @param  array<string, mixed>  $query
      * @return array<string, mixed>
      *
@@ -66,7 +96,7 @@ abstract class SatelliteClient
             'query'    => $query,
         ]);
 
-        $response = $this->http->get($endpoint, $query);
+        $response = $this->send($endpoint, fn (): Response => $this->http->get($endpoint, $query));
 
         Log::channel($this->logChannel)->debug('[SatelliteClient] GET response', [
             'endpoint' => $endpoint,
@@ -98,7 +128,7 @@ abstract class SatelliteClient
             'payload'  => $payload,
         ]);
 
-        $response = $this->http->post($endpoint, $payload);
+        $response = $this->send($endpoint, fn (): Response => $this->http->post($endpoint, $payload));
 
         Log::channel($this->logChannel)->debug('[SatelliteClient] POST response', [
             'endpoint' => $endpoint,
@@ -130,7 +160,7 @@ abstract class SatelliteClient
             'payload'  => $payload,
         ]);
 
-        $response = $this->http->put($endpoint, $payload);
+        $response = $this->send($endpoint, fn (): Response => $this->http->put($endpoint, $payload));
 
         Log::channel($this->logChannel)->debug('[SatelliteClient] PUT response', [
             'endpoint' => $endpoint,
@@ -158,7 +188,7 @@ abstract class SatelliteClient
             'endpoint' => $endpoint,
         ]);
 
-        $response = $this->http->delete($endpoint);
+        $response = $this->send($endpoint, fn (): Response => $this->http->delete($endpoint));
 
         if ($response->failed()) {
             throw new SatelliteException(
